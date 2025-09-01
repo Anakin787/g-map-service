@@ -637,17 +637,14 @@ const createFixedPolygons = () => {
 
   // 각 폴리곤에 개별 클릭 이벤트 추가
   greenPolygon.addListener('click', (event: any) => {
-    console.log('초록 폴리곤 직접 클릭됨');
     handlePolygonClick(event, '초록');
   });
 
   yellowPolygon.addListener('click', (event: any) => {
-    console.log('노랑 폴리곤 직접 클릭됨');
     handlePolygonClick(event, '노랑');
   });
 
   redPolygon.addListener('click', (event: any) => {
-    console.log('빨강 폴리곤 직접 클릭됨');
     handlePolygonClick(event, '빨강');
   });
 
@@ -657,11 +654,7 @@ const createFixedPolygons = () => {
 
 // --- 지도 클릭 이벤트 핸들러 ---
 const handleMapClick = (event: any) => {
-  console.log('지도 클릭됨:', event.latLng?.lat(), event.latLng?.lng());
-  console.log('폴리곤 개수:', fixedPolygons.value.length);
-  
   if (!event.latLng || fixedPolygons.value.length === 0) {
-    console.log('클릭 이벤트 또는 폴리곤이 없음');
     return;
   }
 
@@ -671,7 +664,6 @@ const handleMapClick = (event: any) => {
   
   for (const polygon of fixedPolygons.value) {
     const isInside = google.maps.geometry.poly.containsLocation(event.latLng, polygon);
-    console.log('폴리곤 내부 체크:', isInside, polygon.get('fillColor'));
     
     if (isInside) {
       clickedPolygon = polygon;
@@ -680,14 +672,12 @@ const handleMapClick = (event: any) => {
       if (fillColor === '#00FF00') polygonColor = '초록';
       else if (fillColor === '#FFFF00') polygonColor = '노랑';
       else if (fillColor === '#FF0000') polygonColor = '빨강';
-      console.log('폴리곤 내부 클릭됨:', polygonColor);
       break;
     }
   }
 
   if (clickedPolygon) {
     // 폴리곤 내부 클릭 - 마커 표시 및 계산 팝업
-    console.log('폴리곤 클릭 처리 시작');
     handlePolygonClick(event, polygonColor);
   } else {
     // 기존 정보창이 있다면 닫기
@@ -696,7 +686,6 @@ const handleMapClick = (event: any) => {
     }
     
     // 폴리곤 외부 클릭 - 주소 검색 안내
-    console.log('폴리곤 외부 클릭');
     showAddressInputGuide();
   }
 };
