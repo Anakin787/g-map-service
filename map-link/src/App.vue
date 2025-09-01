@@ -728,6 +728,11 @@ const resetAll = () => {
 const closeOutsideZoneDialog = () => {
   showOutsideZoneDialog.value = false;
   outsideZoneInfo.value = null;
+  
+  // 검색창 초기화
+  if (searchInput.value) {
+    searchInput.value.value = '';
+  }
 };
 
 // 주소 확인 다이얼로그 닫기 함수
