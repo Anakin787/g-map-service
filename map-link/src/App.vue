@@ -7,28 +7,33 @@
       placeholder="주소를 검색하면 자동으로 요금이 계산됩니다..."
       class="search-input"
     />
+    <!-- 요금 계산 요약 박스 -->
+    <div v-if="calculatedFare && showFareSummary" class="fare-summary-box" @click.stop="openFareDialog">
+      <div class="fare-summary-route">
+        <span class="departure-location">{{ selectedDeparture }}</span>
+        <div class="route-middle">
+          <div class="route-line"></div>
+          <div class="vehicle-info">{{ vehicleTypes[selectedVehicle] }}</div>
+          <div class="route-line"></div>
+        </div>
+        <span class="destination-location">{{ selectedDestination }}</span>
+      </div>
+      <div class="fare-summary-price">
+        <span class="total-fare">{{ calculatedFare.totalFare.toLocaleString() }}바트</span>
+        <span v-if="calculatedFare.zone" class="zone-info">({{ calculatedFare.zone }} 구역 +{{ calculatedFare.extraFee.toLocaleString() }}바트)</span>
+      </div>
+      <div class="click-hint">클릭하여 수정</div>
+    </div>
+
     <!-- 구글 지도가 렌더링될 컨테이너 -->
     <div ref="mapDiv" class="map-canvas"></div>
 
     <!-- 요금 안내 영역 -->
     <div class="price-info-box">
-      <h3 class="price-title">지역별 요금 안내</h3>
-      <div class="price-list">
-        <div class="price-item green">
-          <div class="color-indicator green-indicator"></div>
-          <span class="zone-name">초록 지역</span>
-          <span class="price-info">추가요금 없음</span>
-        </div>
-        <div class="price-item yellow">
-          <div class="color-indicator yellow-indicator"></div>
-          <span class="zone-name">노랑 지역</span>
-          <span class="price-info">추가 100바트</span>
-        </div>
-        <div class="price-item red">
-          <div class="color-indicator red-indicator"></div>
-          <span class="zone-name">빨강 지역</span>
-          <span class="price-info">추가 200바트</span>
-        </div>
+      <div class="price-zones">
+        <span class="zone-text green-zone">초록구역 추가요금없음</span>
+        <span class="zone-text yellow-zone">노랑구역 +100바트</span>
+        <span class="zone-text red-zone">빨강구역 +200바트</span>
       </div>
     </div>
 
@@ -49,87 +54,104 @@
         </div>
         
         <div class="dialog-content">
-          <!-- 검색된 주소 정보 표시 -->
-          <div v-if="searchedAddress" class="searched-address-info">
-            <div class="address-header">
-              <span class="address-icon">📍</span>
-              <h3>검색된 주소</h3>
+          <!-- PC 화면용 2열 레이아웃 -->
+          <div class="dialog-layout">
+            <!-- 왼쪽 컬럼: 입력 폼들 -->
+            <div class="dialog-left-column">
+              <!-- 검색된 주소 정보 표시 -->
+              <div v-if="searchedAddress" class="searched-address-info">
+                <div class="address-header">
+                  <span class="address-icon">📍</span>
+                  <h3>검색된 주소</h3>
+                </div>
+                <div class="address-card">
+                  <p class="address-text">{{ searchedAddress }}</p>
+                  <div class="zone-badge" :class="selectedZone">
+                    <span class="zone-indicator" :class="selectedZone"></span>
+                    {{ selectedZone }} 구역 (+{{ zoneExtraFee[selectedZone] }}바트)
+                  </div>
+                </div>
+              </div>
+
+              <!-- 출발지 선택 -->
+              <div class="form-group">
+                <label for="departure">출발지</label>
+                <select id="departure" v-model="selectedDeparture">
+                  <option value="">출발지를 선택하세요</option>
+                  <option v-for="location in departureLocations" :key="location" :value="location">
+                    {{ location }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- 도착지 선택 -->
+              <div class="form-group">
+                <label for="destination">도착지</label>
+                <select id="destination" v-model="selectedDestination">
+                  <option value="">도착지를 선택하세요</option>
+                  <option v-for="location in availableDestinations" :key="location" :value="location">
+                    {{ location }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- 차종 선택 -->
+              <div class="form-group">
+                <label>차종</label>
+                <div class="vehicle-options">
+                  <label v-for="(name, type) in vehicleTypes" :key="type" class="vehicle-option">
+                    <input type="radio" :value="type" v-model="selectedVehicle" />
+                    <span>{{ name }}</span>
+                  </label>
+                </div>
+              </div>
             </div>
-            <div class="address-card">
-              <p class="address-text">{{ searchedAddress }}</p>
-              <div class="zone-badge" :class="selectedZone">
-                <span class="zone-indicator" :class="selectedZone"></span>
-                {{ selectedZone }} 구역 (+{{ zoneExtraFee[selectedZone] }}바트)
+
+            <!-- 오른쪽 컬럼: 요금 정보 -->
+            <div class="dialog-right-column">
+              <!-- 요금 계산 결과 -->
+              <div v-if="calculatedFare" class="fare-result">
+                <h3>요금 정보</h3>
+                <div class="fare-details">
+                  <div class="fare-row">
+                    <span>기본 요금:</span>
+                    <span>{{ calculatedFare.baseFare.toLocaleString() }}바트</span>
+                  </div>
+                  <div v-if="calculatedFare.zone" class="fare-row">
+                    <span>추가 요금 ({{ calculatedFare.zone }} 구역):</span>
+                    <span>{{ calculatedFare.extraFee.toLocaleString() }}바트</span>
+                  </div>
+                  <div class="fare-row total">
+                    <span>총 요금:</span>
+                    <span>{{ calculatedFare.totalFare.toLocaleString() }}바트</span>
+                  </div>
+                </div>
+                
+                <div class="route-info">
+                  <p><strong>{{ selectedDeparture }}</strong> → <strong>{{ selectedDestination }}</strong></p>
+                  <p>차종: {{ vehicleTypes[selectedVehicle] }}</p>
+                  <p v-if="calculatedFare.zone">선택된 구역: {{ calculatedFare.zone }}</p>
+                </div>
+
+                <div class="notice">
+                  <p v-if="!calculatedFare.zone">📍 지도에서 정확한 위치를 클릭하면 해당 구역의 추가요금이 자동으로 계산됩니다!</p>
+                  <p v-else>✅지도에서 {{ calculatedFare.zone }} 구역이 선택되었습니다!</p>
+                </div>
+              </div>
+              
+              <!-- 요금 정보가 없을 때 안내 메시지 -->
+              <div v-else class="fare-placeholder">
+                <div class="placeholder-icon">💰</div>
+                <h3>요금 계산 준비</h3>
+                <p>출발지와 도착지를 선택하면<br/>요금 정보가 여기에 표시됩니다.</p>
               </div>
             </div>
           </div>
 
-          <!-- 출발지 선택 -->
-          <div class="form-group">
-            <label for="departure">출발지</label>
-            <select id="departure" v-model="selectedDeparture">
-              <option value="">출발지를 선택하세요</option>
-              <option v-for="location in departureLocations" :key="location" :value="location">
-                {{ location }}
-              </option>
-            </select>
-          </div>
-
-          <!-- 도착지 선택 -->
-          <div class="form-group">
-            <label for="destination">도착지</label>
-            <select id="destination" v-model="selectedDestination">
-              <option value="">도착지를 선택하세요</option>
-              <option v-for="location in availableDestinations" :key="location" :value="location">
-                {{ location }}
-              </option>
-            </select>
-          </div>
-
-          <!-- 차종 선택 -->
-          <div class="form-group">
-            <label>차종</label>
-            <div class="vehicle-options">
-              <label v-for="(name, type) in vehicleTypes" :key="type" class="vehicle-option">
-                <input type="radio" :value="type" v-model="selectedVehicle" />
-                <span>{{ name }}</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- 요금 계산 결과 -->
-          <div v-if="calculatedFare" class="fare-result">
-            <h3>요금 정보</h3>
-            <div class="fare-details">
-              <div class="fare-row">
-                <span>기본 요금:</span>
-                <span>{{ calculatedFare.baseFare.toLocaleString() }}바트</span>
-              </div>
-              <div v-if="calculatedFare.zone" class="fare-row">
-                <span>추가 요금 ({{ calculatedFare.zone }} 구역):</span>
-                <span>{{ calculatedFare.extraFee.toLocaleString() }}바트</span>
-              </div>
-              <div class="fare-row total">
-                <span>총 요금:</span>
-                <span>{{ calculatedFare.totalFare.toLocaleString() }}바트</span>
-              </div>
-            </div>
-            
-            <div class="route-info">
-              <p><strong>{{ selectedDeparture }}</strong> → <strong>{{ selectedDestination }}</strong></p>
-              <p>차종: {{ vehicleTypes[selectedVehicle] }}</p>
-              <p v-if="calculatedFare.zone">선택된 구역: {{ calculatedFare.zone }}</p>
-            </div>
-
-            <div class="notice">
-              <p v-if="!calculatedFare.zone">📍 지도에서 정확한 위치를 클릭하면 해당 구역의 추가요금이 자동으로 계산됩니다!</p>
-              <p v-else>✅ 지도에서 {{ calculatedFare.zone }} 구역이 선택되었습니다!</p>
-            </div>
-            
-            <div class="dialog-actions">
-              <button class="action-btn secondary" @click="resetAll">전체 초기화</button>
-              <button class="action-btn primary" @click="closeFareDialog">확인</button>
-            </div>
+          <!-- 버튼들은 전체 너비로 하단에 배치 -->
+          <div v-if="calculatedFare" class="dialog-actions">
+            <button class="action-btn secondary" @click="resetAll">전체 초기화</button>
+            <button class="action-btn primary" @click="closeFareDialog">확인</button>
           </div>
         </div>
       </div>
@@ -361,6 +383,9 @@ const outsideZoneInfo = ref<{ address: string, position: { lat: number, lng: num
 
 // 검색된 주소 정보
 const searchedAddress = ref<string>('');
+
+// 요금 요약 박스 표시 여부
+const showFareSummary = ref<boolean>(false);
 
 // 주소 확인 다이얼로그 상태
 const showAddressConfirmDialog = ref<boolean>(false);
@@ -695,7 +720,17 @@ const handleMapClick = (event: any) => {
 // 다이얼로그 닫기 함수
 const closeFareDialog = () => {
   showFareDialog.value = false;
+  // 요금이 계산되었으면 요약 박스 표시
+  if (calculatedFare.value) {
+    showFareSummary.value = true;
+  }
   // 검색된 주소 정보는 유지 (사용자가 다시 열 때 확인 가능)
+};
+
+// 요금 다이얼로그 열기 함수
+const openFareDialog = () => {
+  showFareSummary.value = false; // 요약 박스 숨기기
+  showFareDialog.value = true; // 다이얼로그 열기
 };
 
 // 전체 초기화 함수
@@ -706,11 +741,16 @@ const resetAll = () => {
   selectedZone.value = '';
   searchedAddress.value = '';
   showFareDialog.value = false;
+  showFareSummary.value = false; // 요약 박스도 숨기기
   showAddressConfirmDialog.value = false;
   showAddressGuideDialog.value = false;
   pendingAddressInfo.value = null;
   clickedLocationInfo.value = null;
-  
+  if (searchInput.value) {
+    searchInput.value.value = '';
+  }
+  // 지도의 배율 원복
+  map.value.setZoom(11);
   // 마커 제거
   if (marker.value) {
     marker.value.setMap(null);
@@ -1087,201 +1127,310 @@ const reset = () => {
 
 .price-info-box {
   position: absolute;
-  top: 80px;
-  right: 20px;
-  background-color: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  bottom: 90px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 12px 16px;
+  border-radius: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   z-index: 10;
-  width: 280px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.price-title {
-  margin-top: 0;
-  margin-bottom: 15px;
-  color: #333;
-  font-size: 16px;
-  text-align: center;
-  font-weight: 600;
-}
-
-.price-list {
+.price-zones {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
-.price-item {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  border-radius: 8px;
-  background-color: #f8f9fa;
-  border-left: 4px solid transparent;
-}
-
-.price-item.green {
-  border-left-color: #00FF00;
-}
-
-.price-item.yellow {
-  border-left-color: #FFFF00;
-}
-
-.price-item.red {
-  border-left-color: #FF0000;
-}
-
-.color-indicator {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  margin-right: 12px;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.green-indicator {
-  background-color: #00FF00;
-}
-
-.yellow-indicator {
-  background-color: #FFFF00;
-}
-
-.red-indicator {
-  background-color: #FF0000;
-}
-
-.zone-name {
+.zone-text {
+  font-size: 12px;
   font-weight: 600;
-  color: #333;
-  margin-right: auto;
-  font-size: 14px;
+  padding: 2px 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.price-info {
-  font-weight: 500;
-  color: #666;
-  font-size: 13px;
+.green-zone {
+  color: #22c55e;
+}
+
+.yellow-zone {
+  color: #f59e0b;
+}
+
+.red-zone {
+  color: #ef4444;
+}
+
+/* 요금 요약 박스 반응형 */
+@media (max-width: 768px) {
+  .fare-summary-box {
+    top: 60px;
+    width: 85%;
+    max-width: 350px;
+    padding: 12px 16px;
+  }
+  
+  .fare-summary-route {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  
+  .route-middle {
+    margin: 0 8px;
+  }
+  
+  .vehicle-info {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+  
+  .total-fare {
+    font-size: 16px;
+  }
+  
+  .zone-info {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fare-summary-box {
+    top: 55px;
+    width: 82%;
+    max-width: 300px;
+    padding: 10px 14px;
+  }
+  
+  .fare-summary-route {
+    font-size: 12px;
+  }
+  
+  .departure-location,
+  .destination-location {
+    max-width: 30%;
+    font-size: 11px;
+  }
+  
+  .route-middle {
+    margin: 0 6px;
+  }
+  
+  .route-line {
+    height: 1.5px;
+    margin: 0 3px;
+  }
+  
+  .vehicle-info {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+  }
+  
+  .total-fare {
+    font-size: 15px;
+  }
+  
+  .zone-info {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 360px) {
+  .fare-summary-box {
+    top: 50px;
+    width: 80%;
+    max-width: 250px;
+    padding: 8px 12px;
+  }
+  
+  .fare-summary-route {
+    font-size: 11px;
+  }
+  
+  .departure-location,
+  .destination-location {
+    max-width: 28%;
+    font-size: 10px;
+  }
+  
+  .route-middle {
+    margin: 0 4px;
+  }
+  
+  .vehicle-info {
+    font-size: 9px;
+    padding: 2px 5px;
+  }
+  
+  .total-fare {
+    font-size: 14px;
+  }
+  
+  .zone-info {
+    font-size: 8px;
+  }
 }
 
 /* 태블릿 환경 (768px 이하) */
 @media (max-width: 768px) {
   .price-info-box {
-    top: 60px;
-    right: 15px;
-    width: 240px;
-    padding: 16px;
+    bottom: 80px;
+    left: 15px;
+    padding: 10px 14px;
   }
-
-  .price-title {
-    font-size: 14px;
-    margin-bottom: 12px;
-  }
-
-  .price-list {
-    gap: 10px;
-  }
-
-  .price-item {
-    padding: 10px;
-    border-left-width: 3px;
-  }
-
-  .color-indicator {
-    width: 14px;
-    height: 14px;
-    margin-right: 10px;
-  }
-
-  .zone-name {
-    font-size: 13px;
-  }
-
-  .price-info {
-    font-size: 12px;
+  
+  .zone-text {
+    font-size: 11px;
   }
 }
 
 /* 모바일 환경 (480px 이하) */
 @media (max-width: 480px) {
   .price-info-box {
-    top: 50px;
-    right: 10px;
-    width: 200px;
-    padding: 12px;
-    border-radius: 8px;
+    bottom: 70px;
+    left: 12px;
+    padding: 8px 12px;
   }
 
-  .price-title {
-    font-size: 13px;
-    margin-bottom: 10px;
+  .zone-text {
+    font-size: 10px;
+    gap: 4px;
   }
-
-  .price-list {
-    gap: 8px;
-  }
-
-  .price-item {
-    padding: 8px;
-    border-radius: 6px;
-    border-left-width: 3px;
-  }
-
-  .color-indicator {
-    width: 12px;
-    height: 12px;
-    margin-right: 8px;
-    border-width: 1px;
-  }
-
-  .zone-name {
-    font-size: 12px;
-  }
-
-  .price-info {
-    font-size: 11px;
+  
+  .price-zones {
+    gap: 4px;
   }
 }
 
 /* 초소형 모바일 환경 (360px 이하) */
 @media (max-width: 360px) {
   .price-info-box {
-    top: 45px;
-    right: 8px;
-    width: 180px;
-    padding: 10px;
+    bottom: 65px;
+    left: 10px;
+    padding: 6px 10px;
   }
 
-  .price-title {
-    font-size: 12px;
-    margin-bottom: 8px;
+  .zone-text {
+    font-size: 9px;
   }
+  
+  .price-zones {
+    gap: 3px;
+  }
+}
 
-  .price-list {
-    gap: 6px;
-  }
+/* 요금 요약 박스 */
+.fare-summary-box {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid #667eea;
+  border-radius: 15px;
+  padding: 15px 20px;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  z-index: 10;
+  width: 90%;
+  max-width: 400px;
+  animation: slideDown 0.3s ease-out;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
 
-  .price-item {
-    padding: 6px;
-    border-left-width: 2px;
-  }
+.fare-summary-box:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.25);
+  border-color: #5a67d8;
+}
 
-  .color-indicator {
-    width: 10px;
-    height: 10px;
-    margin-right: 6px;
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
   }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
 
-  .zone-name {
-    font-size: 11px;
-  }
+.fare-summary-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
 
-  .price-info {
-    font-size: 10px;
-  }
+.departure-location,
+.destination-location {
+  color: #333;
+  flex-shrink: 0;
+  max-width: 35%;
+  text-align: center;
+  word-break: keep-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-middle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  margin: 0 10px;
+}
+
+.route-line {
+  height: 2px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  flex: 1;
+  margin: 0 5px;
+}
+
+.vehicle-info {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.fare-summary-price {
+  text-align: center;
+  padding-top: 8px;
+  border-top: 1px solid #e9ecef;
+}
+
+.total-fare {
+  font-size: 18px;
+  font-weight: 700;
+  color: #667eea;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.zone-info {
+  font-size: 11px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.click-hint {
+  font-size: 10px;
+  color: #667eea;
+  text-align: center;
+  margin-top: 5px;
+  opacity: 0.7;
+  font-weight: 500;
 }
 
 /* 요금 계산 버튼 */
@@ -1327,7 +1476,7 @@ const reset = () => {
   background: white;
   border-radius: 15px;
   width: 90%;
-  max-width: 500px;
+  max-width: 900px; /* PC에서 더 넓은 다이얼로그 */
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -1372,6 +1521,52 @@ const reset = () => {
 
 .dialog-content {
   padding: 25px;
+}
+
+/* PC용 2열 레이아웃 */
+.dialog-layout {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+.dialog-left-column {
+  flex: 1;
+  min-width: 0; /* flex item이 줄어들 수 있도록 */
+}
+
+.dialog-right-column {
+  flex: 1;
+  min-width: 0; /* flex item이 줄어들 수 있도록 */
+}
+
+/* 요금 정보 플레이스홀더 */
+.fare-placeholder {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px dashed #dee2e6;
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  color: #6c757d;
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  opacity: 0.7;
+}
+
+.fare-placeholder h3 {
+  margin: 0 0 10px 0;
+  color: #495057;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.fare-placeholder p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .form-group {
@@ -1904,6 +2099,13 @@ const reset = () => {
   .fare-dialog {
     width: 95%;
     margin: 10px;
+    max-width: 500px; /* 모바일에서는 원래 크기로 */
+  }
+  
+  /* 모바일에서는 세로 레이아웃으로 변경 */
+  .dialog-layout {
+    flex-direction: column;
+    gap: 20px;
   }
   
   .dialog-header {
@@ -1925,6 +2127,23 @@ const reset = () => {
   .vehicle-option {
     min-width: auto;
   }
+  
+  /* 모바일에서 플레이스홀더 크기 조정 */
+  .fare-placeholder {
+    padding: 30px 15px;
+  }
+  
+  .placeholder-icon {
+    font-size: 36px;
+  }
+  
+  .fare-placeholder h3 {
+    font-size: 16px;
+  }
+  
+  .fare-placeholder p {
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1944,6 +2163,28 @@ const reset = () => {
   
   .dialog-content {
     padding: 15px;
+  }
+  
+  /* 작은 화면에서 레이아웃 간격 조정 */
+  .dialog-layout {
+    gap: 15px;
+  }
+  
+  /* 플레이스홀더 더 작게 */
+  .fare-placeholder {
+    padding: 20px 10px;
+  }
+  
+  .placeholder-icon {
+    font-size: 28px;
+  }
+  
+  .fare-placeholder h3 {
+    font-size: 14px;
+  }
+  
+  .fare-placeholder p {
+    font-size: 12px;
   }
 }
 
